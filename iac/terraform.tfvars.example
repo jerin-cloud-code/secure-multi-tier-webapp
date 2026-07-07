@@ -1,0 +1,28 @@
+# Example Configuration Settings for secure-multi-tier-webapp (Copy to terraform.tfvars)
+
+# General Deployment settings
+aws_region   = "us-east-1"
+project_name = "secure-multi-tier"
+environment  = "dev"
+
+# Networking settings
+vpc_cidr                 = "10.0.0.0/16"
+public_subnet_cidrs      = ["10.0.1.0/24", "10.0.2.0/24"]
+private_app_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
+private_db_subnet_cidrs  = ["10.0.20.0/24", "10.0.21.0/24"]
+
+# Compute Settings (Launch Template / Auto Scaling)
+instance_type = "t3.micro"
+ami_id        = "ami-0c7217cdde317cfec" # Amazon Linux 2023 AMI in us-east-1
+
+# Database Settings
+db_allocated_storage = 20
+db_instance_class    = "db.t3.micro"
+db_name              = "appdb"
+db_username          = "dbadmin"
+
+# SENSITIVE: DB Password (Do NOT commit real passwords to version control!)
+db_password          = "SuperSecurePassword123!" 
+
+# Route 53 Custom Domain
+domain_name          = "portfolio.example.com"

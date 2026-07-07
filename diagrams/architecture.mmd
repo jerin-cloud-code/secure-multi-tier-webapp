@@ -1,0 +1,108 @@
+graph TD
+  %% Style Definitions
+  classDef internet fill:#f9f,stroke:#333,stroke-width:2px;
+  classDef dns fill:#232F3E,stroke:#fff,stroke-width:1px,color:#fff;
+  classDef alb fill:#8C4FFF,stroke:#fff,stroke-width:1px,color:#fff;
+  classDef publicSubnet fill:#E6F2FF,stroke:#0073BB,stroke-width:1px,stroke-dasharray: 5 5;
+  classDef privateAppSubnet fill:#FFEBF0,stroke:#D9144A,stroke-width:1px,stroke-dasharray: 5 5;
+  classDef privateDbSubnet fill:#E2FFEB,stroke:#1D8102,stroke-width:1px,stroke-dasharray: 5 5;
+  classDef ec2 fill:#FF9900,stroke:#333,stroke-width:1px;
+  classDef rds fill:#3357FF,stroke:#333,stroke-width:1px,color:#fff;
+  classDef s3 fill:#3F8624,stroke:#333,stroke-width:1px,color:#fff;
+  classDef iam fill:#808080,stroke:#333,stroke-width:1px,color:#fff;
+  classDef cw fill:#FF4D4D,stroke:#333,stroke-width:1px,color:#fff;
+
+  User([Internet User]) -->|HTTPS| R53[Route 53 DNS]
+  R53 -->|Resolve| ALB[Application Load Balancer]
+
+  subgraph VPC ["AWS Virtual Private Cloud (VPC)"]
+    direction TB
+    
+    subgraph SG_ALB ["Security Group: ALB (Ports 80, 443)"]
+      ALB
+    end
+
+    subgraph AZ_A ["Availability Zone A"]
+      subgraph Public_Subnet_A ["Public Subnet A"]
+        ALB_A[ALB Node A]
+      end
+      
+      subgraph Private_App_Subnet_A ["Private App Subnet A"]
+        subgraph ASG ["Auto Scaling Group"]
+          EC2_A[EC2 Web Instance A]
+        end
+      end
+
+      subgraph Private_DB_Subnet_A ["Private DB Subnet A"]
+        RDS_Pri[RDS Master DB]
+      end
+    end
+
+    subgraph AZ_B ["Availability Zone B"]
+      subgraph Public_Subnet_B ["Public Subnet B"]
+        ALB_B[ALB Node B]
+      end
+      
+      subgraph Private_App_Subnet_B ["Private App Subnet B"]
+        EC2_B[EC2 Web Instance B]
+      end
+
+      subgraph Private_DB_Subnet_B ["Private DB Subnet B"]
+        RDS_Sec[RDS Standby DB]
+      end
+    end
+
+    %% Security Group boundaries
+    subgraph SG_EC2 ["Security Group: EC2 Web (Accept ALB only)"]
+      EC2_A
+      EC2_B
+    end
+
+    subgraph SG_RDS ["Security Group: DB (Accept EC2 only)"]
+      RDS_Pri
+      RDS_Sec
+    end
+
+    %% NAT Gateways
+    NAT_A[NAT Gateway A]
+    NAT_B[NAT Gateway B]
+    IGW[Internet Gateway]
+
+    Public_Subnet_A --> NAT_A
+    Public_Subnet_B --> NAT_B
+    Public_Subnet_A --> IGW
+    Public_Subnet_B --> IGW
+    
+    Private_App_Subnet_A -->|Route via NAT A| NAT_A
+    Private_App_Subnet_B -->|Route via NAT B| NAT_B
+  end
+
+  %% Flow and Connections
+  ALB -->|Forward Port 80| EC2_A
+  ALB -->|Forward Port 80| EC2_B
+  EC2_A -->|Read/Write Port 3306| RDS_Pri
+  EC2_B -->|Read/Write Port 3306| RDS_Pri
+
+  %% Auxiliary Services
+  IAM_Role[IAM Instance Profile] -.->|Least Privilege Permissions| EC2_A
+  IAM_Role -.->|Least Privilege Permissions| EC2_B
+
+  EC2_A -->|Send Logs & Metrics| CW[CloudWatch Logs / Alarms]
+  EC2_B -->|Send Logs & Metrics| CW
+
+  ALB -->|Access Logs| S3[S3 Bucket - logs-and-assets]
+  EC2_A -->|Upload/Download Assets| S3
+  EC2_B -->|Upload/Download Assets| S3
+
+  %% Apply styles
+  class User internet;
+  class R53 dns;
+  class ALB,ALB_A,ALB_B alb;
+  class Public_Subnet_A,Public_Subnet_B publicSubnet;
+  class Private_App_Subnet_A,Private_App_Subnet_B privateAppSubnet;
+  class Private_DB_Subnet_A,Private_DB_Subnet_B privateDbSubnet;
+  class EC2_A,EC2_B ec2;
+  class RDS_Pri,RDS_Sec rds;
+  class S3 s3;
+  class IAM_Role iam;
+  class CW cw;
